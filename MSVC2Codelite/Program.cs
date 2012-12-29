@@ -28,18 +28,27 @@ namespace MSVC2Codelite
             foreach(XmlNode groupNode in itemGroup)
             {
                 XmlElement group_elem = (XmlElement)groupNode;
-                XmlNodeList cppNodes = group_elem.GetElementsByTagName("ClCompile");
-                foreach (XmlNode cpp_node in cppNodes)
+                foreach (XmlNode cnode in group_elem.ChildNodes)
                 {
-                    XmlElement cpp_elem = (XmlElement)cpp_node;
-                    ReadItem(cpp_elem);
+                    if (cnode is XmlElement)
+                    {
+                        XmlElement cpp_elem = (XmlElement)cnode;
+                        ReadItem(cpp_elem);
+                    }
                 }
-                XmlNodeList headerNodes = group_elem.GetElementsByTagName("ClInclude");
-                foreach (XmlNode h_node in headerNodes)
-                {
-                    XmlElement h_elem = (XmlElement)h_node;
-                    ReadItem(h_elem);
-                }
+                
+                //XmlNodeList cppNodes = group_elem.GetElementsByTagName("ClCompile");
+                //foreach (XmlNode cpp_node in cppNodes)
+                //{
+                //    XmlElement cpp_elem = (XmlElement)cpp_node;
+                //    ReadItem(cpp_elem);
+                //}
+                //XmlNodeList headerNodes = group_elem.GetElementsByTagName("ClInclude");
+                //foreach (XmlNode h_node in headerNodes)
+                //{
+                //    XmlElement h_elem = (XmlElement)h_node;
+                //    ReadItem(h_elem);
+                //}
             }
             //////////////////////////////////////////////////////////////////////////
             //修改codelite 的工程
