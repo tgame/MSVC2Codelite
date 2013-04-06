@@ -6,22 +6,59 @@ using System.Xml;
 
 namespace MSVC2Codelite
 {
+    public class VirtualDirection
+    {
+        public string m_name;
+        public List<string> m_files = new List<string>();
+        public List<VirtualDirection> m_subs = new List<VirtualDirection>();
+    }
     class Program
     {
-        public class VirtualDirection
-        {
-            public string m_name;
-            public List<string> m_files = new List<string>();
-            public List<VirtualDirection> m_subs = new List<VirtualDirection>();
-        }
         static List<VirtualDirection> ms_target=new List<VirtualDirection>();
+        static void InputVS2012(string msvc_filters)
+        {
+            XmlDocument src_doc = new XmlDocument();
+            src_doc.Load(msvc_filters);
+            XmlElement src_root = src_doc.DocumentElement;
+            XmlNodeList itemGroup = src_root.GetElementsByTagName("ItemGroup");
+            foreach (XmlNode groupNode in itemGroup)
+            {
+                XmlElement group_elem = (XmlElement)groupNode;
+                foreach (XmlNode cnode in group_elem.ChildNodes)
+                {
+                    if (cnode is XmlElement)
+                    {
+                        XmlElement cpp_elem = (XmlElement)cnode;
+                        ReadVS2012Item(cpp_elem);
+                    }
+                }
+            }
+        }
+        static void ReadVS2012Item(XmlElement node)
+        {
+            if (!node.HasAttribute("Include"))
+            {
+                return;
+            }
+            string filter;
+
+            string file = node.GetAttribute("Include");
+            XmlNodeList filter_nodeList = node.GetElementsByTagName("Filter");
+            if (filter_nodeList.Count > 0)
+            {
+                XmlElement filter_elem = (XmlElement)filter_nodeList.Item(0);
+                filter = filter_elem.FirstChild.InnerText;
+                AddFile(file, filter);
+            }
+        }
+        
         static void MSVCToCodeLite(string msvc_filters, string codeliteProject)
         {
             XmlDocument src_doc = new XmlDocument();
             src_doc.Load(msvc_filters);
             XmlDocument dst_doc = new XmlDocument();
             dst_doc.Load(codeliteProject);
-            dst_doc.Save(codeliteProject + ".bak");
+            //dst_doc.Save(codeliteProject + ".bak");
             XmlElement dst_root = dst_doc.DocumentElement;
             XmlElement src_root = src_doc.DocumentElement;
             XmlNodeList itemGroup = src_root.GetElementsByTagName("ItemGroup");
@@ -33,7 +70,7 @@ namespace MSVC2Codelite
                     if (cnode is XmlElement)
                     {
                         XmlElement cpp_elem = (XmlElement)cnode;
-                        ReadItem(cpp_elem);
+                        ReadVS2012Item(cpp_elem);
                     }
                 }
                 
@@ -61,48 +98,10 @@ namespace MSVC2Codelite
             foreach (VirtualDirection sub in ms_target)
             {
                 //.AppendChild(xmlelem2);
-                CreateXmlNode(sub, dst_root, dst_doc);
+                CodeLite.CreateCodeLiteXmlNode(sub, dst_root, dst_doc);
             }
             
             dst_doc.Save(codeliteProject);
-        }
-        static void CreateXmlNode(VirtualDirection vdir, XmlNode node,XmlDocument doc)
-        {
-            XmlElement elem = doc.CreateElement("VirtualDirectory");
-            XmlAttribute attr_elem = doc.CreateAttribute("Name");
-            attr_elem.InnerText = vdir.m_name;
-            elem.Attributes.Append(attr_elem);
-
-            foreach (string file in vdir.m_files)
-            {
-                XmlElement elem_file = doc.CreateElement("File");
-                XmlAttribute attr = doc.CreateAttribute("Name");
-                attr.InnerText = file;
-                elem_file.Attributes.Append(attr);
-                elem.AppendChild(elem_file);
-            }
-            node.AppendChild(elem);
-            foreach (VirtualDirection sub in vdir.m_subs)
-            {
-                CreateXmlNode(sub, elem, doc);
-            }
-        }
-        static void ReadItem(XmlElement node)
-        {
-            if (!node.HasAttribute("Include"))
-            {
-                return;
-            }
-            string filter;
-
-            string file = node.GetAttribute("Include");
-            XmlNodeList filter_nodeList = node.GetElementsByTagName("Filter");
-            if (filter_nodeList.Count > 0)
-            {
-                XmlElement filter_elem = (XmlElement)filter_nodeList.Item(0);
-                filter = filter_elem.FirstChild.InnerText;
-                AddFile(file, filter);
-            }
         }
         static void AddFile(string file, string filter)
         {
@@ -138,12 +137,29 @@ namespace MSVC2Codelite
         }
         static void Main(string[] args)
         {
-            MSVCToCodeLite(args[0], args[1]);
-            //foreach (string s in args)
-            //{
-            //    Console.WriteLine(s);
-            //}
-            Console.WriteLine("Succ");
+            string src = args[0];
+            string dst = args[1];
+            Console.WriteLine("Read: " + src);
+            InputVS2012(src);
+            int clPos=dst.IndexOf("project");
+            int vcPos = dst.IndexOf("vcproj");
+            if (clPos >= 0)
+            {
+                Console.WriteLine("Write codelite project: " + dst);
+                CodeLite.OutputCodeLite(dst, ms_target);
+                Console.WriteLine("Succ");
+            }
+            else if (vcPos >= 0)
+            {
+                Console.WriteLine("Write vc2005 or vc2008 project: " + dst);
+                VS2008Prj.OutputVS2008(dst, ms_target);
+                Console.WriteLine("Succ");
+            }
+            else
+            {
+                string msg = string.Format("无法确定目标文件格式:{0},Codelite Pos:{1},VC Pos:{2}", dst, vcPos, clPos);
+                Console.WriteLine(msg);
+            }
         }
     }
 }
